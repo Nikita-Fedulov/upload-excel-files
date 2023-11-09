@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>File Upload</title>
+
+</head>
+
+<body>
+
+<div class="container mt-5">
+
+    <div class="row">
+
+        <div class="col-md-6 offset-md-3">
+
+            <div class="p-5">
+
+                <h1 class="text-center">Upload Excel File</h1>
+
+                <form action="/upload" method="post" enctype="multipart/form-data">
+
+                    <div class="form-group">
+
+                        <label for="fileInput">Choose Excel File:</label>
+
+                        <input type="file" class="form-control-file" id="fileInput" name="file" accept=".xlsx">
+
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block">Upload File</button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+</body>
+
+</html>
