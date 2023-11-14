@@ -7,10 +7,12 @@ import com.example.uploadexcelfiles.exception.RateLimitExceededException;
 import com.example.uploadexcelfiles.model.AddressDetail;
 import com.example.uploadexcelfiles.model.AddressValue;
 import com.example.uploadexcelfiles.model.ExcelAddress;
+import com.example.uploadexcelfiles.model.RequestCount;
 import com.example.uploadexcelfiles.repository.AddressDetailRepository;
 import com.example.uploadexcelfiles.repository.AddressValueRepository;
+import com.example.uploadexcelfiles.repository.RequestCountRepository;
 import com.example.uploadexcelfiles.service.ExcelFileService;
-import com.example.uploadexcelfiles.service.RequestLimitService;
+import com.example.uploadexcelfiles.service.RequestCountService;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -25,20 +27,19 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Controller
 public class AddreessController {
     private final AddressValueRepository addressValueRepository;
-    private final AddressDetailRepository addressDetailRepository;
     private final ExcelFileService excelFileService;
-    private final RequestLimitService requestLimitService;
+    private final RequestCountService requestCountService;
 
-    public AddreessController(AddressValueRepository addressValueRepository, AddressDetailRepository addressDetailRepository, ExcelFileService excelFileService, RequestLimitService requestLimitService) {
+    public AddreessController(AddressValueRepository addressValueRepository, ExcelFileService excelFileService, RequestCountService requestCountService) {
         this.addressValueRepository = addressValueRepository;
-        this.addressDetailRepository = addressDetailRepository;
         this.excelFileService = excelFileService;
-        this.requestLimitService = requestLimitService;
+        this.requestCountService = requestCountService;
     }
 
     @GetMapping("/upload")
@@ -51,50 +52,13 @@ public class AddreessController {
         try {
             excelFileService.uploadAndParseExcelFile(file);
             List<ExcelAddress> dataFromExcel = excelFileService.getDataFromExcel(file);
-
-
-            String url = "https://fias-public-service.nalog.ru/api/spas/v2.0/SearchAddressItems?search_string={name}&address_type=1";
-            String token = "c0e8e0dd-3330-4772-b69d-e454da4fc865";
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("master-token", token);
-            RestTemplate restTemplate = new RestTemplate();
-            HttpEntity<Void> httpEntity = new HttpEntity<>(headers);
-
-            for (ExcelAddress data : dataFromExcel) {
-                requestLimitService.checkRateLimit();
-
-                ResponseEntity<AddressResponseDTO> response = restTemplate.exchange(url, HttpMethod.GET, httpEntity, AddressResponseDTO.class, data.getAddress());
-
-                AddressResponseDTO addressResponse = response.getBody();
-                if (addressResponse != null && addressResponse.getAddresses() != null) {
-                    for (AddressDTO addressDTO : addressResponse.getAddresses()) {
-                        // Сохраните детали и значения адреса в базе данных
-                        AddressDetail addressDetail = new AddressDetail();
-                        AddressDetailsDTO addressDetailsDTO = addressDTO.getAddress_details();
-                        addressDetail.setPostal_code(addressDetailsDTO.getPostal_code());
-                        addressDetail.setIfns_ul(addressDetailsDTO.getIfns_ul());
-                        addressDetail.setIfns_fl(addressDetailsDTO.getIfns_fl());
-                        addressDetailRepository.save(addressDetail);
-
-                        AddressValue addressValue = new AddressValue();
-                        addressValue.setObjectId(addressDTO.getObject_id());
-                        addressValue.setObjectLevelId(addressDTO.getObject_level_id());
-                        addressValue.setOperationTypeId(addressDTO.getOperation_type_id());
-                        addressValue.setObjectGuid(addressDTO.getObject_guid());
-                        addressValue.setFullName(addressDTO.getFull_name());
-                        addressValue.setRegionCode(addressDTO.getRegion_code());
-                        addressValueRepository.save(addressValue);
-                    }
-                }
-            }
-
+            requestCountService.processAddressesAndSaveCount(dataFromExcel);
             return "redirect:/success";
-        } catch (RateLimitExceededException e) {
-            return "Превышено ограничение количества запросов";
         } catch (Exception e) {
             return "Произошла ошибка";
         }
     }
+
 
     @GetMapping("/success")
     public String showSuccessPage() {
@@ -115,6 +79,7 @@ public class AddreessController {
         headerRow.createCell(2).setCellValue("OPERATION ID");
         headerRow.createCell(3).setCellValue("REGION");
         headerRow.createCell(4).setCellValue("FULL NAME");
+        headerRow.createCell(5).setCellValue("OBJECT ID");
 
 
         int rowNum = 1;
@@ -125,6 +90,7 @@ public class AddreessController {
             row.createCell(2).setCellValue(addressValue.getOperationTypeId());
             row.createCell(3).setCellValue(addressValue.getRegionCode());
             row.createCell(4).setCellValue(addressValue.getFullName());
+            row.createCell(5).setCellValue(addressValue.getObjectId());
         }
 
         // Сохранить документ Excel

@@ -56,8 +56,4 @@ public class ExcelFileService {
 
         return dataFromExcel;
     }
-
-    public ResponseEntity<String> getForEntity(String s, Class<String> stringClass) {
-        return null;
-    }
 }
