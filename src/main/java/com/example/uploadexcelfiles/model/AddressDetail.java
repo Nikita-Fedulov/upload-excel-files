@@ -23,7 +23,7 @@ public class AddressDetail {
 //        private String ifns_tfl;
 //        private String okato;
 //        private String oktmo;
-//        private String kladr_code;
+     private String kladr_code;
 //        private String cadastral_number;
 //        private String apart_building;
 //        private String remove_cadastr;

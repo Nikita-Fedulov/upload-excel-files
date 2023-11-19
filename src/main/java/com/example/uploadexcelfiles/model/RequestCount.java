@@ -21,4 +21,7 @@ public class RequestCount {
 
     @Column(name = "count")
     private int count;
+
+    @Column(name = "totalCount")
+    private int totalCount;
 }

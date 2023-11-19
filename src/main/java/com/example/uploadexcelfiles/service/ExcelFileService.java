@@ -21,18 +21,25 @@ public class ExcelFileService {
     public void uploadAndParseExcelFile(MultipartFile file) throws IOException {
         Workbook workbook = new XSSFWorkbook(file.getInputStream());
         Sheet sheet = workbook.getSheetAt(0);
+
+        List<String> addresses = new ArrayList<>();
+
         for (Row row : sheet) {
             String address = row.getCell(1).getStringCellValue();
-            ExcelAddress existingAddress = repository.findByAddress(address);
-            if (existingAddress == null) {
+            addresses.add(address);
+        }
+
+        List<ExcelAddress> existingAddresses = repository.findByAddressIn(addresses);
+
+        for (String address : addresses) {
+            if (existingAddresses.stream().noneMatch(a -> a.getAddress().equals(address))) {
                 ExcelAddress newAddress = new ExcelAddress();
                 newAddress.setAddress(address);
                 repository.save(newAddress);
-            } else {
-                continue;
             }
-            workbook.close();
         }
+
+        workbook.close();
     }
 
     public List<ExcelAddress> getDataFromExcel(MultipartFile file) throws IOException {

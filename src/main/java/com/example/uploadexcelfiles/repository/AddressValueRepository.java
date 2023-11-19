@@ -9,4 +9,5 @@ import org.springframework.stereotype.Repository;
 public interface AddressValueRepository extends JpaRepository<AddressValue, Long> {
 
     AddressValue findByObjectId(int objectId);
+
 }

@@ -5,6 +5,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Entity
 @Data
 @AllArgsConstructor
@@ -15,6 +17,4 @@ public class ExcelAddress {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     private String address;
-
-
     }

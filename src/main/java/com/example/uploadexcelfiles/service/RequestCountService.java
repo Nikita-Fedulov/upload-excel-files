@@ -26,6 +26,7 @@ public class RequestCountService {
     private final AddressValueRepository addressValueRepository;
     private final RequestCountRepository requestCountRepository;
 
+
     public RequestCountService(
             AddressDetailRepository addressDetailRepository,
             AddressValueRepository addressValueRepository,
@@ -34,7 +35,7 @@ public class RequestCountService {
         this.addressDetailRepository = addressDetailRepository;
         this.addressValueRepository = addressValueRepository;
         this.requestCountRepository = requestCountRepository;
-    }
+        }
 
     public void processAddressesAndSaveCount(List<ExcelAddress> dataFromExcel) throws InterruptedException {
         String url = "https://fias-public-service.nalog.ru/api/spas/v2.0/SearchAddressItems?search_string={name}&address_type=1";
@@ -44,13 +45,14 @@ public class RequestCountService {
         RestTemplate restTemplate = new RestTemplate();
         HttpEntity<Void> httpEntity = new HttpEntity<>(headers);
 
-        int requestCount = 0; // Счётчик запросов
+        int requestCount = 0;
 
         for (ExcelAddress data : dataFromExcel) {
             if (requestCount >= 100) {
                 Thread.sleep(60000); // Пауза на минуту, если достигнут лимит запросов
                 requestCount = 0; // Обнуляем счётчик после паузы
             }
+
 
             ResponseEntity<AddressResponseDTO> response = restTemplate.exchange(url, HttpMethod.GET, httpEntity, AddressResponseDTO.class, data.getAddress());
             AddressResponseDTO addressResponse = response.getBody();
@@ -62,42 +64,58 @@ public class RequestCountService {
                     // Проверяем, есть ли уже такой адрес в базе данных
                     if (addressValueRepository.findByObjectId(objectId) == null) {
                         // Сохраняем адресные данные в базе данных
-                        saveAddressDetails(addressDTO);
-
-                        requestCount++; // Увеличиваем счётчик запросов
+                        saveAddressDetails(data.getAddress(), addressDTO);
                     }
                 }
             }
+            requestCount++;
         }
         saveRequestCount(requestCount);
-
     }
 
     private void saveRequestCount(int count) {
         LocalDateTime currentDateTime = LocalDateTime.now();
         RequestCount requestCount = requestCountRepository.findByTimestamp(currentDateTime);
 
-        if (requestCount == null) {
+        if(requestCount == null || requestCount.getTotalCount() == 0) {
             // Создание новой записи счётчика запросов
             requestCount = new RequestCount();
             requestCount.setTimestamp(currentDateTime);
             requestCount.setCount(count);
+            requestCount.setTotalCount(count);
         } else {
             // Обновление значения счётчика
             requestCount.setCount(count);
+            requestCount.setTotalCount(requestCount.getTotalCount() + count);
         }
 
-        // Сохранение/обновление записи счётчика запросов
         requestCountRepository.save(requestCount);
     }
 
-    private void saveAddressDetails(AddressDTO addressDTO) {
+    private void saveAddressDetails(String excelAddress, AddressDTO addressDTO) {
         AddressDetail addressDetail = new AddressDetail();
         AddressDetailsDTO addressDetailsDTO = addressDTO.getAddress_details();
-        addressDetail.setPostal_code(addressDetailsDTO.getPostal_code());
-        addressDetail.setIfns_ul(addressDetailsDTO.getIfns_ul());
-        addressDetail.setIfns_fl(addressDetailsDTO.getIfns_fl());
-        addressDetailRepository.save(addressDetail);
+
+        if (addressDetailsDTO != null) {
+            // Дополнительные проверки на null для других полей
+            if (addressDetailsDTO.getIfns_ul() != null) {
+                addressDetail.setIfns_ul(addressDetailsDTO.getIfns_ul());
+            }
+
+            if (addressDetailsDTO.getIfns_fl() != null) {
+                addressDetail.setIfns_fl(addressDetailsDTO.getIfns_fl());
+            }
+
+            if (addressDetailsDTO.getKladr_code() != null) {
+                addressDetail.setKladr_code(addressDetailsDTO.getKladr_code());
+            }
+
+
+            // Сохранение AddressDetail только если хотя бы одно из полей не null
+            if (addressDetail.getIfns_ul() != null || addressDetail.getIfns_fl() != null || addressDetail.getKladr_code() != null) {
+                addressDetailRepository.save(addressDetail);
+            }
+        }
 
         AddressValue addressValue = new AddressValue();
         addressValue.setObjectId(addressDTO.getObject_id());
@@ -106,6 +124,14 @@ public class RequestCountService {
         addressValue.setObjectGuid(addressDTO.getObject_guid());
         addressValue.setFullName(addressDTO.getFull_name());
         addressValue.setRegionCode(addressDTO.getRegion_code());
-        addressValueRepository.save(addressValue);
+
+
+        // Привязка AddressValue к ExcelAddress
+        addressValue.setExcelAddressValue(excelAddress);
+        addressValue.setKladrCode(addressDetail.getKladr_code());
+        addressValue.setAddressDetail(addressDetail);
+
+            addressValueRepository.save(addressValue);
+
     }
 }

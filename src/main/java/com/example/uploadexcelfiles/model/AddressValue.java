@@ -19,6 +19,9 @@ public class AddressValue {
     @JoinColumn(name = "address_detail_id", referencedColumnName = "id")
     private AddressDetail addressDetail;
 
+    @Column(name = "excel_address_value")
+    private String excelAddressValue;
+
     @Column(name = "object_id")
     private int objectId;
 
@@ -39,6 +42,9 @@ public class AddressValue {
 
     @Column(name = "region_code")
     private int regionCode;
+
+    @Column(name = "kladr_code")
+    private String kladrCode;
 
 //    @Column(name = "is_active")
 //    private boolean isActive;
